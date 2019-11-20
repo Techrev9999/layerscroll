@@ -1,0 +1,1386 @@
+
+; 64tass Turbo Assembler Macro V1.54.1900 listing file
+; 64tass -Wall -C -B --line-numbers --verbose-list --tab-size=4 --m65c02 -L layerscroll.lst -o layerscroll.PRG layerscroll.asm
+; Tue Nov 19 23:56:15 2019
+
+;Line	;Offset	;Hex			;Monitor		;Source
+
+:1		;******  Processing input file: layerscroll.asm
+
+1												; 64TASS ASM FILE
+
+3												;
+4												; Simple horizontal scroll demo of layer0 with layer1 being static
+5												;
+
+7												.section section_ZP
+8		>0000									hScrollDelay		.byte		?
+9		>0001									hScrollOff			.byte		?
+10		>0002									hScrollPos			.byte		?
+11												.send section_ZP
+
+13												.section section_BSS
+14		>0400									oldISR:		.word		?
+15		>0402									mapChar		.byte		?
+16												.send section_BSS
+
+18												.section section_CODE
+19		>0801	0e 08 0a 00 9e 20 28 32				.byte $0e, $08, $0a, $00, $9e, $20, $28, $32, $30, $36, $34, $29, $00, $00, $00		; Start at $0810
+		>0809	30 36 34 29 00 00 00
+
+
+22		=$0314									ISR_ADDR	= $0314
+23		=$00000									L0_MAP_BASE	= $00000
+24		=$04000									L1_MAP_BASE	= $04000
+25		=$8b									HUD_OUT_CLR	= $8B
+26		=$61									HUD_TXT_CLR = $61
+27		=2										HSCROLL_DELAY_RESET	= 2		; 1 second for every 60 delay
+
+29												;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+30		.0810	20 44 08		jsr $0844				jsr titleScreen
+31		.0813	20 45 08		jsr $0845				jsr initGame
+
+33		.0816	20 1c 08		jsr $081c				jsr isrInit
+
+35		.0819	4c 19 08		jmp $0819				jmp *
+36														;rts
+
+38		.081c									isrInit:
+39		.081c	78				sei						sei			; disable interrupts
+
+41														;save previous interrupt location
+42		.081d	ad 14 03		lda $0314				lda ISR_ADDR
+43		.0820	8d 00 04		sta $0400				sta oldISR
+44		.0823	ad 15 03		lda $0315				lda ISR_ADDR+1
+45		.0826	8d 01 04		sta $0401				sta oldISR+1
+
+47		.0829	a9 cb			lda #$cb				lda #<myIsr				; hook to myisr
+48		.082b	8d 14 03		sta $0314				sta ISR_ADDR
+49		.082e	a9 0c			lda #$0c				lda #>myIsr
+50		.0830	8d 15 03		sta $0315				sta ISR_ADDR+1
+
+52		.0833	a9 00			lda #$00				lda #$00				; init hscroll value
+53		.0835	85 01			sta $01					sta hScrollOff
+54		.0837	8d 02 04		sta $0402				sta mapChar
+55		.083a	a9 1e			lda #$1e				lda #30
+56		.083c	85 02			sta $02					sta hScrollPos
+57		.083e	a9 02			lda #$02				lda #HSCROLL_DELAY_RESET		; scroll delay
+58		.0840	85 00			sta $00					sta hScrollDelay
+
+60		.0842	58				cli						cli			; enable interrupts
+61		.0843	60				rts						rts
+
+
+64		.0844									titleScreen:
+65		.0844	60				rts						rts
+
+67		.0845									initGame:
+68														; most everything is done on data port 0
+111:2													.if 0 < 0 || 0 > 1
+113														.fi
+5		.0845	a9 00			lda #$00				lda #0
+6		.0847	8d 25 9f		sta $9f25				sta Vera.IO_VERA.ctrl
+
+71:1													; set screen to 320x240
+124:2													.if 320 != 640 && 320 != 320 && 320 != 160
+126														.fi
+127														.if 240 != 480 && 240 != 240 && 240 != 120
+129														.fi
+
+23		.084a	a9 00			lda #$00				lda #<(Vera.DC_VIDEO)
+24		.084c	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.084f	a9 00			lda #$00				lda #>(Vera.DC_VIDEO)
+26		.0851	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0854	a9 1f			lda #$1f				lda #`((1 << 20) | Vera.DC_VIDEO)
+28		.0856	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+37		.0859	a9 01			lda #$01				lda #%00000001
+38		.085b	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+37		.085e	a9 40			lda #$40				lda #(320 / 5)
+38		.0860	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+37		.0863	a9 40			lda #$40				lda #(240 / 15)<<2
+38		.0865	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+
+74:1													; setup layer 0: mode=0/e=1, map=32x32, map=$0000, tile=font0, h/v-scroll=0
+149:2													.if 0 == 0
+150		=$f2000												LAYER = Vera.L0_CTRL0
+155														.fi
+
+23		.0868	a9 00			lda #$00				lda #<(LAYER)
+24		.086a	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.086d	a9 20			lda #$20				lda #>(LAYER)
+26		.086f	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0872	a9 1f			lda #$1f				lda #`((1 << 20) | LAYER)
+28		.0874	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+37		.0877	a9 61			lda #$61				lda #%01100001
+38		.0879	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+159														.if %01100001 > 0
+37		.087c	a9 00			lda #$00				lda #$00
+38		.087e	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.0881	a9 00			lda #$00				lda #<(L0_MAP_BASE >> 2)
+45		.0883	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.0886	a9 00			lda #$00				lda #>(L0_MAP_BASE >> 2)
+47		.0888	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.088b	a9 00			lda #$00				lda #<(Vera.FONT_LPETSCII >> 2)
+45		.088d	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.0890	a9 7e			lda #$7e				lda #>(Vera.FONT_LPETSCII >> 2)
+47		.0892	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.0895	a9 00			lda #$00				lda #<$0000
+45		.0897	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.089a	a9 00			lda #$00				lda #>$0000
+47		.089c	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.089f	a9 00			lda #$00				lda #<$0000
+45		.08a1	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.08a4	a9 00			lda #$00				lda #>$0000
+47		.08a6	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+165														.fi
+76:1													; setup layer 1: mode=0/e=1, map=64x32, map=$4000, tile=font0, h/v-scroll=0
+149:2													.if 1 == 0
+151														.elsif 1 == 1
+152		=$f3000												LAYER = Vera.L1_CTRL0
+155														.fi
+
+23		.08a9	a9 00			lda #$00				lda #<(LAYER)
+24		.08ab	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.08ae	a9 30			lda #$30				lda #>(LAYER)
+26		.08b0	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.08b3	a9 1f			lda #$1f				lda #`((1 << 20) | LAYER)
+28		.08b5	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+37		.08b8	a9 61			lda #$61				lda #%01100001
+38		.08ba	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+159														.if %01100001 > 0
+37		.08bd	a9 01			lda #$01				lda #$01
+38		.08bf	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.08c2	a9 00			lda #$00				lda #<(L1_MAP_BASE >> 2)
+45		.08c4	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.08c7	a9 10			lda #$10				lda #>(L1_MAP_BASE >> 2)
+47		.08c9	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.08cc	a9 00			lda #$00				lda #<(Vera.FONT_LPETSCII >> 2)
+45		.08ce	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.08d1	a9 7e			lda #$7e				lda #>(Vera.FONT_LPETSCII >> 2)
+47		.08d3	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.08d6	a9 00			lda #$00				lda #<$0000
+45		.08d8	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.08db	a9 00			lda #$00				lda #>$0000
+47		.08dd	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+44		.08e0	a9 00			lda #$00				lda #<$0000
+45		.08e2	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+46		.08e5	a9 00			lda #$00				lda #>$0000
+47		.08e7	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+165														.fi
+
+79:1													; copy the palette data over to VERA
+23:2	.08ea	a9 00			lda #$00				lda #<(Vera.PALETTE)
+24		.08ec	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.08ef	a9 10			lda #$10				lda #>(Vera.PALETTE)
+26		.08f1	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.08f4	a9 1f			lda #$1f				lda #`((1 << 20) | Vera.PALETTE)
+28		.08f6	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+
+248		.08f9	a9 28			lda #$28				lda #<palette			; copy source address to z0
+249		.08fb	85 03			sta $03					sta Vera.z0
+250		.08fd	a9 0e			lda #$0e				lda #>palette
+251		.08ff	85 04			sta $04					sta Vera.z0+1
+
+253		.0901	a9 02			lda #$02				lda #>512
+254		.0903	85 05			sta $05					sta Vera.z1			; store \3(hi) in z1
+255		.0905	a2 00			ldx #$00				ldx #<512			; load \3(lo) into x
+256		.0907	f0 0d			beq $0916				beq +				; if zero then jump to decreasing \3(hi)
+
+258		.0909	a0 00			ldy #$00		-		ldy #$00			; start y at 0 since VERA address increase goes by 1
+259		.090b	b1 03			lda ($03),y		-		lda (Vera.z0),y		; load A with source + y
+260		.090d	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0		; store in data0
+261		.0910	c8				iny						iny
+262		.0911	ca				dex						dex
+263		.0912	d0 f7			bne $090b				bne -						; continue if more bytes to xfer
+
+265		.0914	e6 04			inc $04					inc Vera.z0+1		; increment src(hi) by 1
+
+267		.0916	a5 05			lda $05			+		lda Vera.z1			; load A with \3(hi)
+268		.0918	f0 04			beq $091e				beq +				; if zero then we are done
+269		.091a	c6 05			dec $05					dec Vera.z1			; decrease \3(hi)
+270		.091c	80 eb			bra $0909				bra	--				; goto -
+271		.091e									+
+81:1													; copy the 'font' data into low PETSCII location only copying 64 characters
+23:2	.091e	a9 00			lda #$00				lda #<(Vera.FONT_LPETSCII)
+24		.0920	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0923	a9 f8			lda #$f8				lda #>(Vera.FONT_LPETSCII)
+26		.0925	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0928	a9 11			lda #$11				lda #`((1 << 20) | Vera.FONT_LPETSCII)
+28		.092a	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+
+248		.092d	a9 28			lda #$28				lda #<font			; copy source address to z0
+249		.092f	85 03			sta $03					sta Vera.z0
+250		.0931	a9 10			lda #$10				lda #>font
+251		.0933	85 04			sta $04					sta Vera.z0+1
+
+253		.0935	a9 08			lda #$08				lda #>64*4*8
+254		.0937	85 05			sta $05					sta Vera.z1			; store \3(hi) in z1
+255		.0939	a2 00			ldx #$00				ldx #<64*4*8			; load \3(lo) into x
+256		.093b	f0 0d			beq $094a				beq +				; if zero then jump to decreasing \3(hi)
+
+258		.093d	a0 00			ldy #$00		-		ldy #$00			; start y at 0 since VERA address increase goes by 1
+259		.093f	b1 03			lda ($03),y		-		lda (Vera.z0),y		; load A with source + y
+260		.0941	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0		; store in data0
+261		.0944	c8				iny						iny
+262		.0945	ca				dex						dex
+263		.0946	d0 f7			bne $093f				bne -						; continue if more bytes to xfer
+
+265		.0948	e6 04			inc $04					inc Vera.z0+1		; increment src(hi) by 1
+
+267		.094a	a5 05			lda $05			+		lda Vera.z1			; load A with \3(hi)
+268		.094c	f0 04			beq $0952				beq +				; if zero then we are done
+269		.094e	c6 05			dec $05					dec Vera.z1			; decrease \3(hi)
+270		.0950	80 eb			bra $093d				bra	--				; goto -
+271		.0952									+
+
+84:1													; fill window: mapBase, numMapCols, c, r, w, h, chr, clr
+23:2	.0952	a9 00			lda #$00				lda #<(L0_MAP_BASE)
+24		.0954	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0957	a9 00			lda #$00				lda #>(L0_MAP_BASE)
+26		.0959	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.095c	a9 10			lda #$10				lda #`((1 << 20) | L0_MAP_BASE)
+28		.095e	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0961	a9 01			lda #$01				lda #1
+6		.0963	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0966	a9 01			lda #$01				lda #1
+6		.0968	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.096b	a9 20			lda #$20				lda #32
+6		.096d	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0970	a9 20			lda #$20				lda #32
+6		.0972	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0975	a9 19			lda #$19				lda #25
+6		.0977	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.097a	a9 00			lda #$00				lda #0
+6		.097c	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.097f	a9 00			lda #$00				lda #(32 - 32)<<1
+6		.0981	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 32 == 32
+204		.0984	20 6f 0d		jsr $0d6f					jsr Vera.AddCwRowColToVAddr32
+211														.fi
+212		.0987	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.098a	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.098c	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.098f	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0991	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0994	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0996	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0999	a9 01			lda #$01				lda #1
+6		.099b	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.099e	a9 01			lda #$01				lda #1
+6		.09a0	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.09a3	a9 1c			lda #$1c				lda #28
+6		.09a5	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.09a8	a9 1c			lda #$1c				lda #28
+6		.09aa	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.09ad	a9 00			lda #$00				lda #0
+6		.09af	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.09b2	a9 00			lda #$00				lda #0
+6		.09b4	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.09b7	a9 48			lda #$48				lda #(64 - 28)<<1
+6		.09b9	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.09bc	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.09bf	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.09c2	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.09c4	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.09c7	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.09c9	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.09cc	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.09ce	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.09d1	a9 00			lda #$00				lda #0
+6		.09d3	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.09d6	a9 00			lda #$00				lda #0
+6		.09d8	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.09db	a9 28			lda #$28				lda #40
+6		.09dd	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.09e0	a9 01			lda #$01				lda #1
+6		.09e2	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.09e5	a9 03			lda #$03				lda #3
+6		.09e7	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.09ea	a9 00			lda #$00				lda #0
+6		.09ec	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.09ef	a9 30			lda #$30				lda #(64 - 40)<<1
+6		.09f1	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.09f4	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.09f7	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.09fa	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.09fc	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.09ff	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0a01	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0a04	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0a06	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0a09	a9 00			lda #$00				lda #0
+6		.0a0b	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0a0e	a9 1d			lda #$1d				lda #29
+6		.0a10	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0a13	a9 28			lda #$28				lda #40
+6		.0a15	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0a18	a9 01			lda #$01				lda #1
+6		.0a1a	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0a1d	a9 03			lda #$03				lda #3
+6		.0a1f	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0a22	a9 00			lda #$00				lda #0
+6		.0a24	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0a27	a9 30			lda #$30				lda #(64 - 40)<<1
+6		.0a29	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0a2c	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0a2f	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0a32	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0a34	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0a37	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0a39	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0a3c	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0a3e	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0a41	a9 00			lda #$00				lda #0
+6		.0a43	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0a46	a9 00			lda #$00				lda #0
+6		.0a48	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0a4b	a9 01			lda #$01				lda #1
+6		.0a4d	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0a50	a9 1e			lda #$1e				lda #30
+6		.0a52	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0a55	a9 04			lda #$04				lda #4
+6		.0a57	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0a5a	a9 00			lda #$00				lda #0
+6		.0a5c	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0a5f	a9 7e			lda #$7e				lda #(64 - 1)<<1
+6		.0a61	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0a64	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0a67	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0a6a	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0a6c	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0a6f	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0a71	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0a74	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0a76	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0a79	a9 1d			lda #$1d				lda #29
+6		.0a7b	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0a7e	a9 00			lda #$00				lda #0
+6		.0a80	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0a83	a9 01			lda #$01				lda #1
+6		.0a85	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0a88	a9 1e			lda #$1e				lda #30
+6		.0a8a	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0a8d	a9 04			lda #$04				lda #4
+6		.0a8f	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0a92	a9 00			lda #$00				lda #0
+6		.0a94	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0a97	a9 7e			lda #$7e				lda #(64 - 1)<<1
+6		.0a99	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0a9c	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0a9f	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0aa2	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0aa4	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0aa7	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0aa9	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0aac	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0aae	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0ab1	a9 27			lda #$27				lda #39
+6		.0ab3	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0ab6	a9 00			lda #$00				lda #0
+6		.0ab8	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0abb	a9 01			lda #$01				lda #1
+6		.0abd	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0ac0	a9 1e			lda #$1e				lda #30
+6		.0ac2	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0ac5	a9 04			lda #$04				lda #4
+6		.0ac7	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0aca	a9 00			lda #$00				lda #0
+6		.0acc	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0acf	a9 7e			lda #$7e				lda #(64 - 1)<<1
+6		.0ad1	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0ad4	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0ad7	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0ada	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0adc	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0adf	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0ae1	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0ae4	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0ae6	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0ae9	a9 1e			lda #$1e				lda #30
+6		.0aeb	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0aee	a9 01			lda #$01				lda #1
+6		.0af0	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0af3	a9 09			lda #$09				lda #9
+6		.0af5	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0af8	a9 09			lda #$09				lda #9
+6		.0afa	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0afd	a9 01			lda #$01				lda #1
+6		.0aff	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0b02	a9 00			lda #$00				lda #0
+6		.0b04	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0b07	a9 6e			lda #$6e				lda #(64 - 9)<<1
+6		.0b09	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0b0c	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0b0f	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0b12	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0b14	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0b17	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0b19	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0b1c	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0b1e	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0b21	a9 1d			lda #$1d				lda #29
+6		.0b23	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0b26	a9 09			lda #$09				lda #9
+6		.0b28	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0b2b	a9 0b			lda #$0b				lda #11
+6		.0b2d	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0b30	a9 01			lda #$01				lda #1
+6		.0b32	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0b35	a9 03			lda #$03				lda #3
+6		.0b37	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0b3a	a9 00			lda #$00				lda #0
+6		.0b3c	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0b3f	a9 6a			lda #$6a				lda #(64 - 11)<<1
+6		.0b41	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0b44	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0b47	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+23		.0b4a	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0b4c	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0b4f	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0b51	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0b54	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0b56	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0b59	a9 00			lda #$00				lda #0
+6		.0b5b	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0b5e	a9 00			lda #$00				lda #0
+6		.0b60	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0b63	a9 05			lda #$05				lda #5
+6		.0b65	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0b68	a9 00			lda #$00				lda #0
+6		.0b6a	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0b6d	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0b70	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0b73	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0b75	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0b78	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0b7a	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0b7d	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0b7f	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0b82	a9 1d			lda #$1d				lda #29
+6		.0b84	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0b87	a9 00			lda #$00				lda #0
+6		.0b89	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0b8c	a9 09			lda #$09				lda #9
+6		.0b8e	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0b91	a9 00			lda #$00				lda #0
+6		.0b93	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0b96	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0b99	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0b9c	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0b9e	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0ba1	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0ba3	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0ba6	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0ba8	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0bab	a9 27			lda #$27				lda #39
+6		.0bad	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0bb0	a9 00			lda #$00				lda #0
+6		.0bb2	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0bb5	a9 06			lda #$06				lda #6
+6		.0bb7	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0bba	a9 00			lda #$00				lda #0
+6		.0bbc	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0bbf	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0bc2	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0bc5	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0bc7	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0bca	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0bcc	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0bcf	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0bd1	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0bd4	a9 00			lda #$00				lda #0
+6		.0bd6	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0bd9	a9 1d			lda #$1d				lda #29
+6		.0bdb	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0bde	a9 07			lda #$07				lda #7
+6		.0be0	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0be3	a9 00			lda #$00				lda #0
+6		.0be5	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0be8	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0beb	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0bee	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0bf0	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0bf3	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0bf5	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0bf8	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0bfa	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0bfd	a9 1d			lda #$1d				lda #29
+6		.0bff	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0c02	a9 1d			lda #$1d				lda #29
+6		.0c04	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0c07	a9 0a			lda #$0a				lda #10
+6		.0c09	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0c0c	a9 00			lda #$00				lda #0
+6		.0c0e	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0c11	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0c14	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0c17	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0c19	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0c1c	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0c1e	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0c21	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0c23	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0c26	a9 27			lda #$27				lda #39
+6		.0c28	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0c2b	a9 1d			lda #$1d				lda #29
+6		.0c2d	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0c30	a9 08			lda #$08				lda #8
+6		.0c32	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0c35	a9 00			lda #$00				lda #0
+6		.0c37	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0c3a	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0c3d	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0c40	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0c42	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0c45	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0c47	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0c4a	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0c4c	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0c4f	a9 1d			lda #$1d				lda #29
+6		.0c51	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0c54	a9 09			lda #$09				lda #9
+6		.0c56	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0c59	a9 0b			lda #$0b				lda #11
+6		.0c5b	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0c5e	a9 00			lda #$00				lda #0
+6		.0c60	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0c63	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0c66	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0c69	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0c6b	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0c6e	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0c70	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0c73	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0c75	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0c78	a9 27			lda #$27				lda #39
+6		.0c7a	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0c7d	a9 09			lda #$09				lda #9
+6		.0c7f	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0c82	a9 0c			lda #$0c				lda #12
+6		.0c84	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0c87	a9 00			lda #$00				lda #0
+6		.0c89	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+
+230														.if 64 == 32
+232														.elsif 64 == 64
+233		.0c8c	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+238														.fi
+239		.0c8f	20 62 0d		jsr $0d62				jsr Vera.FillChar
+23		.0c92	a9 00			lda #$00				lda #<(L1_MAP_BASE)
+24		.0c94	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0c97	a9 40			lda #$40				lda #>(L1_MAP_BASE)
+26		.0c99	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0c9c	a9 10			lda #$10				lda #`((1 << 20) | L1_MAP_BASE)
+28		.0c9e	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0ca1	a9 1e			lda #$1e				lda #30
+6		.0ca3	8d 39 0d		sta $0d39				sta Vera.cw_col
+5		.0ca6	a9 0a			lda #$0a				lda #10
+6		.0ca8	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0cab	a9 09			lda #$09				lda #9
+6		.0cad	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0cb0	a9 13			lda #$13				lda #19
+6		.0cb2	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0cb5	a9 02			lda #$02				lda #2
+6		.0cb7	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+5		.0cba	a9 00			lda #$00				lda #0
+6		.0cbc	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0cbf	a9 6e			lda #$6e				lda #(64 - 9)<<1
+6		.0cc1	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+203														.if 64 == 32
+205														.elsif 64 == 64
+206		.0cc4	20 a7 0d		jsr $0da7					jsr Vera.AddCwRowColToVAddr64
+211														.fi
+212		.0cc7	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+
+104:1	.0cca	60				rts						rts
+
+106		.0ccb									myIsr:
+107		.0ccb	a9 01			lda #$01				lda #$01				; clear VERA interrupt status
+108		.0ccd	8d 27 9f		sta $9f27				sta Vera.IO_VERA.isr
+
+110		.0cd0	c6 00			dec $00					dec hScrollDelay		; decrease scroll delay
+111		.0cd2	d0 60			bne $0d34				bne isr_done
+112		.0cd4	a9 02			lda #$02				lda #HSCROLL_DELAY_RESET	; reset if at zero
+113		.0cd6	85 00			sta $00					sta hScrollDelay
+
+23:2	.0cd8	a9 06			lda #$06				lda #<(Vera.L0_HSCROLL)
+24		.0cda	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0cdd	a9 20			lda #$20				lda #>(Vera.L0_HSCROLL)
+26		.0cdf	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0ce2	a9 0f			lda #$0f				lda #`((0 << 20) | Vera.L0_HSCROLL)
+28		.0ce4	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+116:1	.0ce7	ee 23 9f		inc $9f23				inc Vera.IO_VERA.data0
+
+118		.0cea	a5 01			lda $01					lda hScrollOff
+119		.0cec	1a				inc a					ina
+120		.0ced	c9 08			cmp #$08				cmp #8
+121		.0cef	d0 02			bne $0cf3				bne +
+122		.0cf1	a9 00			lda #$00				lda #0
+123		.0cf3	85 01			sta $01			+		sta hScrollOff
+124		.0cf5	d0 3d			bne $0d34				bne isr_done
+
+126														; setup for FillWindow routine
+23:2	.0cf7	a9 00			lda #$00				lda #<(L0_MAP_BASE)
+24		.0cf9	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+25		.0cfc	a9 00			lda #$00				lda #>(L0_MAP_BASE)
+26		.0cfe	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+27		.0d01	a9 10			lda #$10				lda #`((1 << 20) | L0_MAP_BASE)
+28		.0d03	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+5		.0d06	a9 01			lda #$01				lda #1
+6		.0d08	8d 3a 0d		sta $0d3a				sta Vera.cw_row
+5		.0d0b	a9 01			lda #$01				lda #1
+6		.0d0d	8d 3b 0d		sta $0d3b				sta Vera.cw_width
+5		.0d10	a9 1c			lda #$1c				lda #28
+6		.0d12	8d 3c 0d		sta $0d3c				sta Vera.cw_height
+5		.0d15	a9 00			lda #$00				lda #0
+6		.0d17	8d 3e 0d		sta $0d3e				sta Vera.cw_color
+5		.0d1a	a9 3e			lda #$3e				lda #(32 - 1)<<1
+6		.0d1c	8d 3f 0d		sta $0d3f				sta Vera.cw_winc
+
+134:1													; column pos
+135		.0d1f	a5 02			lda $02					lda hScrollPos
+136		.0d21	8d 39 0d		sta $0d39				sta Vera.cw_col
+137		.0d24	1a				inc a					ina
+138		.0d25	29 1f			and #$1f				and #$1f
+139		.0d27	85 02			sta $02					sta hScrollPos
+
+141														; fill with mapChar
+142		.0d29	a9 18			lda #$18				lda #24
+143		.0d2b	8d 3d 0d		sta $0d3d				sta Vera.cw_char
+144														;inc mapChar
+
+146														; do fill
+147		.0d2e	20 6f 0d		jsr $0d6f				jsr Vera.AddCwRowColToVAddr32
+148		.0d31	20 41 0d		jsr $0d41				jsr Vera.FillWindow
+
+150		.0d34									isr_done:
+151		.0d34	7a				ply						ply
+152		.0d35	fa				plx						plx
+153		.0d36	68				pla						pla
+154		.0d37	40				rti						rti
+155														;jmp oldISR				; jump to old ISR
+
+157												;#include "debug.asm"
+158												.send section_CODE
+
+
+161												.section section_DATA
+162		.0e28									palette:
+163		>0e28	00 00 00 00 ff 0f 00 0f			.binary "res/palette.bin"
+		>0e30	a0 0f f0 0f f0 00 ff 00 0f 00 0f 0f 00 0b 90 00
+		>0e40	09 00 9d 06 6b 04 49 02 00 00 33 03 55 05 77 07
+		>0e50	99 09 bb 0b dd 0d ff 0f ff 00 0f 00 0f 00 0f 00
+		>0e60	0f 00 0f 00 0f 00 0f 00 00 00 df 0b bd 09 9b 06
+		>0e70	69 04 46 02 24 00 22 07 d3 0f 01 0b 01 0f 67 0f
+		>0e80	dd 0f ef 09 ef 09 ef 09 66 00 44 00 22 00 dd 0f
+		>0e90	bb 0d 99 0b 66 09 44 06 22 04 bb 0f 99 0d 66 0b
+		>0ea0	44 09 22 06 99 0f 66 0d 44 0b 22 09 66 0f 44 0d
+		>0eb0	22 0b 44 0f 22 0d 22 0f fd 0d db 0b b9 09 96 06
+		>0ec0	64 04 42 02 fb 0b d9 09 b6 06 94 04 62 02 f9 09
+		>0ed0	d6 06 b4 04 92 02 f6 06 d4 04 b2 02 f4 04 d2 02
+		>0ee0	f2 02 df 0d bd 0b 9b 09 69 06 46 04 24 02 bf 0b
+		>0ef0	9d 09 6b 06 49 04 26 02 9f 09 6d 06 4b 04 29 02
+		>0f00	6f 06 4d 04 2b 02 4f 04 2d 02 2f 02 fd 0f db 0d
+		>0f10	b9 0b 96 09 64 06 42 04 fb 0f d9 0d b6 0b 94 09
+		>0f20	62 06 f9 0f d6 0d b4 0b 92 09 f6 0f d4 0d b2 0b
+		>0f30	f4 0f d2 0d f2 0f df 0f bd 0d 9b 0b 69 09 46 06
+		>0f40	24 04 bf 0f 9d 0d 6b 0b 49 09 26 06 9f 0f 6d 0d
+		>0f50	4b 0b 29 09 6f 0f 4d 0d 2b 0b 4f 0f 2d 0d 2f 0f
+		>0f60	ff 0d dd 0b bb 09 99 06 66 04 44 02 ff 0b dd 09
+		>0f70	bb 06 99 04 66 02 ff 09 dd 06 bb 04 99 02 ff 06
+		>0f80	dd 04 bb 02 ff 04 dd 02 ff 02 db 0f b9 0d 96 0b
+		>0f90	64 09 42 06 20 04 b9 0f 96 0d 64 0b 42 09 20 06
+		>0fa0	bd 0f 9b 0d 69 0b 46 09 24 06 02 04 9b 0f 69 0d
+		>0fb0	46 0b 24 09 02 06 bf 0d 9d 0b 6b 09 49 06 26 04
+		>0fc0	04 02 9f 0b 6d 09 4b 06 29 04 06 02 df 0b bd 09
+		>0fd0	9b 06 69 04 46 02 24 00 bf 09 9d 06 6b 04 49 02
+		>0fe0	26 00 fd 0b db 09 b9 06 96 04 64 02 42 00 fb 09
+		>0ff0	d9 06 b6 04 94 02 62 00 fb 0d d9 0b b6 09 94 06
+		>1000	62 04 40 02 f9 0b d6 09 b4 06 92 04 60 02 b0 0f
+		>1010	90 0d 60 0b 40 09 0b 0f 09 0d 06 0b 04 09 bf 00
+		>1020	9d 00 6b 00 49 00 00 00
+164		.1028									font:
+165		>1028	00 00 00 00 00 00 00 00			.binary "res/font-hud.bin"
+		>1030	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1040	00 00 00 00 00 00 00 00 11 11 11 11 11 11 11 11
+		>1050	11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+		>1060	11 11 11 11 11 11 11 11 88 88 88 88 88 88 88 88
+		>1070	88 88 88 88 88 88 88 88 88 88 88 88 88 88 88 88
+		>1080	88 88 88 88 88 88 88 88 dd dd dd dd dd dd dd dd
+		>1090	ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee
+		>10a0	ff ff ff ff ff ff ff ff ff ee ee dd ff ee ee dd
+		>10b0	ff ee ee dd ff ee ee dd ff ee ee dd ff ee ee dd
+		>10c0	ff ee ee dd ff ee ee dd ed dd dd dd fe dd dd dd
+		>10d0	ff ee ee ee ff ee ee ee ff ee ee ee ff ee ee ee
+		>10e0	ff ee ee ef ff ee ee de dd dd dd dd dd dd dd dd
+		>10f0	ee ee ee dd ee ee ee dd ee ee ee dd ee ee ee dd
+		>1100	ff ee ee dd ff ee ee dd ff ee ee dd ff ee ee dd
+		>1110	ff ee ee ee ff ee ee ee ff ee ee ee ff ee ee ee
+		>1120	ff ff ff ff ff ff ff ff ef ee ee dd de ee ee dd
+		>1130	ee ee ee dd ee ee ee dd ee ee ee dd ee ee ee dd
+		>1140	ff ff ff ed ff ff ff fe dd dd dd dd dd dd dd dd
+		>1150	ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee
+		>1160	ff ee ee ef ff ee ee de ef ee ee dd de ee ee dd
+		>1170	ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee ee
+		>1180	ff ff ff ff ff ff ff ff ff ee ee dd ff ee ee dd
+		>1190	ff ee ee ee ff ee ee ee ff ee ee ee ff ee ee ee
+		>11a0	ff ee ee ef ff ee ee de ef ee ee dd de ee ee dd
+		>11b0	ee ee ee dd ee ee ee dd ee ee ee dd ee ee ee dd
+		>11c0	ff ee ee dd ff ee ee dd 00 00 00 00 00 00 00 00
+		>11d0	00 02 00 00 00 02 00 00 00 02 00 00 00 02 00 00
+		>11e0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>11f0	00 02 22 00 00 00 02 00 00 00 02 00 00 02 22 00
+		>1200	00 00 22 00 00 00 00 00 00 00 00 00 00 22 20 00
+		>1210	00 20 22 00 00 00 02 00 00 00 20 00 00 00 22 00
+		>1220	02 22 20 00 00 00 00 00 00 00 00 00 00 20 22 00
+		>1230	00 22 22 00 00 00 02 00 00 00 02 00 00 00 00 00
+		>1240	00 00 00 00 00 00 00 00 00 00 00 00 00 00 22 22
+		>1250	00 02 00 00 00 02 20 00 00 02 22 00 00 02 20 00
+		>1260	00 00 00 00 00 00 00 00 00 00 00 00 00 02 22 00
+		>1270	00 22 00 00 02 20 00 00 02 22 22 00 00 22 22 00
+		>1280	00 02 20 00 00 00 00 00 00 00 00 00 00 02 22 20
+		>1290	00 00 02 20 00 00 22 00 00 02 20 00 00 02 00 00
+		>12a0	00 00 00 00 00 00 00 00 00 00 00 00 00 22 22 00
+		>12b0	00 22 02 00 00 02 22 00 00 22 02 00 00 22 20 00
+		>12c0	00 00 00 00 00 00 00 00 00 00 00 00 00 22 22 00
+		>12d0	00 20 02 00 00 22 22 00 00 00 02 00 00 00 02 00
+		>12e0	00 00 00 00 00 00 00 00 00 00 00 00 00 22 22 00
+		>12f0	02 20 02 00 02 00 02 20 02 22 02 20 00 02 22 00
+		>1300	00 00 00 00 00 00 00 00 00 00 00 00 00 33 00 00
+		>1310	00 03 00 00 00 03 00 00 00 03 00 00 00 30 00 00
+		>1320	00 00 00 00 00 00 00 00 00 00 00 00 00 33 33 00
+		>1330	00 00 03 00 00 00 03 00 00 33 33 00 00 33 33 00
+		>1340	00 00 00 00 00 00 00 00 00 00 00 00 00 33 33 00
+		>1350	00 30 03 30 00 00 33 30 00 00 03 00 00 33 33 00
+		>1360	00 00 00 00 00 00 00 00 00 00 00 00 00 30 03 00
+		>1370	00 30 03 00 00 33 33 30 00 00 30 00 00 00 30 00
+		>1380	00 00 00 00 00 00 00 00 00 00 00 00 00 03 33 00
+		>1390	00 33 00 00 00 33 00 00 00 03 30 00 03 33 30 00
+		>13a0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>13b0	00 00 33 00 00 03 30 00 00 03 30 00 00 03 30 00
+		>13c0	00 03 30 00 00 00 00 00 00 00 00 00 00 33 33 00
+		>13d0	00 00 03 00 00 00 33 00 00 03 30 00 00 03 00 00
+		>13e0	00 30 00 00 00 00 00 00 00 00 00 00 00 33 30 00
+		>13f0	03 30 30 00 00 33 30 00 03 33 30 00 33 03 30 00
+		>1400	33 33 00 00 00 00 00 00 00 00 00 00 03 33 33 00
+		>1410	03 00 30 00 03 33 30 00 00 00 30 00 00 00 30 00
+		>1420	00 00 30 00 00 00 30 00 00 00 00 00 00 00 00 00
+		>1430	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1440	00 00 00 00 00 00 00 00 45 45 36 36 13 77 57 62
+		>1450	65 35 46 36 45 62 44 32 32 36 40 45 57 62 63 77
+		>1460	46 35 45 35 45 32 45 42 00 00 00 00 00 00 00 62
+		>1470	00 00 00 36 00 00 04 32 00 00 40 45 07 62 03 77
+		>1480	06 36 45 35 41 32 45 42 40 00 00 00 13 00 00 00
+		>1490	65 35 00 00 45 12 44 00 32 36 40 00 57 62 03 00
+		>14a0	46 36 45 30 41 32 45 42 00 05 30 00 00 07 50 00
+		>14b0	00 05 46 00 00 12 44 00 00 36 40 00 00 62 03 00
+		>14c0	06 36 45 30 41 32 45 40 00 00 00 06 10 00 00 02
+		>14d0	65 00 00 06 45 00 00 02 32 00 00 45 57 60 00 77
+		>14e0	46 30 05 35 41 30 05 42 00 00 00 00 00 00 00 00
+		>14f0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1500	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1510	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1520	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1530	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1540	00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00
+		>1550	00 00 40 00 00 00 40 00 00 00 44 00 00 00 44 00
+		>1560	00 00 00 00 00 00 00 00 00 00 00 00 00 04 40 00
+		>1570	00 04 44 00 00 00 04 00 00 04 44 00 00 04 44 00
+		>1580	00 00 00 00 00 00 00 00 00 00 00 00 00 04 44 00
+		>1590	00 00 04 00 00 04 40 00 00 00 44 00 04 44 44 00
+		>15a0	00 00 00 00 00 00 00 00 00 00 00 00 00 04 00 00
+		>15b0	00 04 00 40 00 04 44 40 00 00 04 00 00 00 04 00
+		>15c0	00 00 04 00 00 00 00 00 00 00 00 00 00 04 44 40
+		>15d0	00 04 00 00 00 04 44 00 00 00 04 00 00 44 44 00
+		>15e0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 00
+		>15f0	00 00 44 00 00 04 40 00 00 44 44 00 00 40 04 00
+		>1600	00 44 44 00 00 00 00 00 00 00 00 00 00 44 40 00
+		>1610	00 00 44 00 00 44 40 00 00 04 40 00 00 44 00 00
+		>1620	00 40 00 00 00 00 00 00 00 00 00 00 00 00 44 04
+		>1630	00 04 40 44 00 04 04 40 00 44 44 00 00 40 04 00
+		>1640	00 44 44 00 00 00 00 00 00 00 00 00 00 44 40 00
+		>1650	00 40 44 00 00 44 44 00 00 00 04 00 00 00 04 00
+		>1660	00 00 04 00 00 00 00 00 00 00 00 00 00 04 44 00
+		>1670	00 44 04 00 04 00 04 40 00 40 00 40 00 44 00 40
+		>1680	00 04 44 40 00 00 00 00 00 00 00 00 00 00 00 00
+		>1690	00 00 50 00 00 00 50 00 00 00 50 00 00 00 50 00
+		>16a0	00 00 50 00 00 00 00 00 00 00 00 00 00 05 55 00
+		>16b0	00 00 05 00 00 00 05 00 00 05 55 50 00 05 50 50
+		>16c0	00 00 00 00 00 00 00 00 00 00 00 00 00 50 00 00
+		>16d0	00 55 55 00 00 00 55 00 00 00 50 00 00 05 50 00
+		>16e0	00 00 00 00 00 00 00 00 00 00 00 00 00 50 00 00
+		>16f0	00 50 05 00 00 55 55 50 00 00 55 00 00 00 50 00
+		>1700	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1710	00 05 55 55 00 05 00 00 00 05 50 00 00 50 50 00
+		>1720	00 55 50 00 00 00 00 00 00 00 00 00 00 00 05 00
+		>1730	50 00 55 00 00 05 00 00 00 55 50 00 00 50 55 00
+		>1740	00 55 50 00 00 00 00 00 00 00 00 00 00 55 50 00
+		>1750	00 00 55 00 00 00 55 00 00 00 50 00 00 05 50 00
+		>1760	00 55 00 00 00 50 00 00 00 00 00 00 00 55 50 00
+		>1770	00 50 50 00 00 55 50 00 05 55 55 00 05 00 55 00
+		>1780	05 55 50 00 00 00 00 00 00 00 00 00 00 55 55 00
+		>1790	00 50 05 00 00 55 55 00 00 00 05 00 00 00 55 00
+		>17a0	00 00 50 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>17b0	00 55 55 00 00 50 05 00 00 50 05 00 00 55 05 00
+		>17c0	00 05 50 00 00 00 00 00 00 00 00 00 00 06 00 00
+		>17d0	00 00 60 00 00 06 00 00 00 06 00 00 00 06 00 00
+		>17e0	00 00 00 00 00 00 00 00 00 00 00 00 00 06 66 00
+		>17f0	00 00 06 60 00 00 00 60 00 00 00 60 00 06 66 60
+		>1800	00 06 60 60 00 00 00 00 00 00 00 00 00 66 60 00
+		>1810	00 00 60 00 00 06 60 00 00 06 60 00 00 06 60 00
+		>1820	06 66 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1830	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1840	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1850	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1860	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1870	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1880	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1890	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18a0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18b0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18c0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18d0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18e0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>18f0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1900	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1910	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1920	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1930	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1940	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1950	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1960	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1970	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1980	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1990	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19a0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19b0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19c0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19d0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19e0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>19f0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1a90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1aa0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ab0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ac0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ad0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ae0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1af0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1b90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ba0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1bb0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1bc0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1bd0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1be0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1bf0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1c90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ca0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1cb0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1cc0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1cd0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ce0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1cf0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1d90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1da0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1db0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1dc0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1dd0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1de0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1df0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1e90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ea0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1eb0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ec0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ed0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ee0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ef0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f00	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f10	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f20	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f30	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f40	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f50	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f60	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f70	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f80	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1f90	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1fa0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1fb0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1fc0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1fd0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1fe0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>1ff0	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>2000	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>2010	00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>2020	00 00 00 00 00 00 00 00
+166												.send section_DATA
+
+168												;
+169												; included libraries
+170												;
+171												.include "vera.asm"
+
+:2		;******  Processing file: vera.asm
+
+1												;
+2												; VERA Library
+3												;
+4												bpoke: .macro
+7												.endm
+8												wpoke: .macro
+13												.endm
+14												lpoke: .macro
+21												.endm
+22												vaddr:	.macro			; increment, 20bit addr
+29												.endm
+30												vinc:	.macro
+35												.endm
+36												vpoke0:	.macro
+39												.endm
+40												vpoke0A:	.macro
+42												.endm
+43												vwpoke0: .macro
+48												.endm
+
+
+51		.0000									Vera: .block
+
+53												; structures
+54		.0000									S_IO: .struct
+55		>0000										addrL	.byte	?			; VERA_ADDR_L	LLLLLLLL: L=address bits 7-0
+56		>0001										addrM	.byte	?			; VERA_ADDR_M	MMMMMMMM: M=address bits 15-8
+57		>0002										addrH	.byte	?			; VERA_ADDR_H   IIIIHHHH: I=increment (0,1,2,4,..,16k), H=address bits 19-16
+58		>0003										data0	.byte	?			; VERA_DATA0
+59		>0004										data1	.byte	?			; VERA_DATA1
+60		>0005										ctrl	.byte	?			; VERA_CTRL		R------A: R=reset, A=data port (0=DATA1, 1=DATA2)
+61		>0006										ien		.byte	?			; VERA_IEN		----USLV: UART, Sprint_Collision, Line, VSync
+62		>0007										isr		.byte	?			; VERA_ISR		----USLV: UART, Sprint_Collision, Line, VSync
+63												.ends
+
+65		.0000									S_LAYER: .struct
+66		>0000										ctrl0		.byte	?
+67		>0001										ctrl1		.byte	?
+68		>0002										mapBase		.word	?
+69		>0004										tileBase	.word	?
+70		>0006										hScroll		.word	?
+71		>0008										vScroll		.word	?
+72												.ends
+
+74												.section section_IO_VERA
+75		.9f20									IO_VERA .dstruct S_IO
+55		>9f20										addrL	.byte	?			; VERA_ADDR_L	LLLLLLLL: L=address bits 7-0
+56		>9f21										addrM	.byte	?			; VERA_ADDR_M	MMMMMMMM: M=address bits 15-8
+57		>9f22										addrH	.byte	?			; VERA_ADDR_H   IIIIHHHH: I=increment (0,1,2,4,..,16k), H=address bits 19-16
+58		>9f23										data0	.byte	?			; VERA_DATA0
+59		>9f24										data1	.byte	?			; VERA_DATA1
+60		>9f25										ctrl	.byte	?			; VERA_CTRL		R------A: R=reset, A=data port (0=DATA1, 1=DATA2)
+61		>9f26										ien		.byte	?			; VERA_IEN		----USLV: UART, Sprint_Collision, Line, VSync
+62		>9f27										isr		.byte	?			; VERA_ISR		----USLV: UART, Sprint_Collision, Line, VSync
+63												.ends
+76												.send section_IO_VERA
+
+78												.section section_ZP
+79		>0003										z0			.word	?
+80		>0005										z1			.word	?
+81												.send section_ZP
+
+83												.section section_BSS
+84												.send section_BSS
+
+86		=$00000									SCREEN_MEM		= $00000		; start of screen memory
+87		=$1e800									FONT_ASCII		= $1E800		; iso ascii font
+88		=$1f000									FONT_UPETSCII	= $1F000		; PETSCII uppercase
+89		=$1f800									FONT_LPETSCII	= $1F800		; PETSCII lowercase
+90		=$f0000									DC_VIDEO		= $F0000		; video mode
+91		=$f1000									PALETTE			= $F1000
+92		=$f2000									L0_CTRL0		= $F2000		; layer 1 control port
+93		=$f2006									L0_HSCROLL		= $F2006
+94		=$f3000									L1_CTRL0		= $F3000		; layer 2 control port
+95		=$f3006									L1_HSCROLL		= $F3006
+96		=$f4000									SPRITE_REG		= $F4000
+97		=$f5000									SPRITE_ATTS		= $F5000
+98		=$f6000									AUDIO			= $F6000
+99		=$f7000									SPI				= $F7000
+100		=$f8000									UART			= $F8000
+
+
+103												;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+104												; Macros
+
+106												;;;;;;;;;;;;;;;;;;;;;;;;;
+107												; Sets the data port to DATA0 or DATA1
+108												; veraSetDataPort <port> (0 or 1)
+109												; Uses: A
+110												setDataPort: .macro
+115												.endm
+
+117												;;;;;;;;;;;;;;;;;;;;;;;;;
+118												; Sets the screen resolution
+119												; veraSetScreenRes <W>, <H>
+120												;	<W>: 640, 320, 160
+121												;	<H>: 480, 240, 120
+122												; Uses: A
+123												setScreenRes:	.macro
+135												.endm
+
+137												;;;;;;;;;;;;;;;;;;;;;;;;;
+138												; Setup layer
+139												; veraLayerSetup <layer> <mode> <tile/map-size> <map-base> <tile-base> <hscroll> <vscroll>
+140												;	<layer> = layer 0 or 1
+141												;	<mode> = MMM----E; M=mode 0-7, E=enable
+142												;	<tile-map-size> = --HWhhww
+143												;	<map-base> = 18 bit addr
+144												;	<tile-base> = 18 bit addr
+145												;	<hscroll> = 12 bit addr
+146												;	<vscroll> = 12 bit addr
+147												; Uses: A
+148												layerSetup: .macro
+166												.endm
+
+168												;;;;;;;;;;;;;;;;;;;;;;;;;
+169												; Sets <value> in last set VERA data port at current address
+170												; veraSetData <value>
+171												;	<value> = the value to store
+172												; Uses: A
+173												setData0:	.macro
+176												.endm
+
+178												;;;;;;;;;;;;;;;;;;;;;;;;;
+179												; Fills a window with a character and color
+180												; veraFillWindow V, X, Y, W, H, F, C
+181												;	V = the baseMap VAddr address
+182												;	MC= the number of map columns
+183												;	X = the left column of the window
+184												;	Y = the top row of the window
+185												;	W = the width of the window
+186												;	H = the height of the window
+187												;	F = the fill character
+188												;	C = the fill color
+189												;
+190												; NOTE: need to set VeraAddr to start of layer screen memory
+191												;
+192												; Uses: A, X, Y
+193												fillWindow: .macro
+213												.endm
+
+215												; Fills a single character on the screen
+216												; fillCHar V, X, Y, F, C
+217												;	V = the baseMap VAddr address
+218												;	MC= the number of map columns
+219												;	X = the left column of the window
+220												;	Y = the top row of the window
+221												;	F = the fill character
+222												;	C = the fill color
+223												fillChar: .macro
+240												.endm
+
+242												; \1 = CPU RAM data source location
+243												; \2 = VERA RAM destination location
+244												; \3 = number of bytes (DO NOT CALL WITH 0)
+245												copyDataToVera: .macro
+272												.endm
+
+274												;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+275												; Subroutines
+276												.section section_CODE
+277		>0d38	00								cw_layer		.byte	0
+278		>0d39	00								cw_col			.byte	0
+279		>0d3a	00								cw_row			.byte	0
+280		>0d3b	00								cw_width		.byte	0
+281		>0d3c	00								cw_height		.byte	0
+282		>0d3d	00								cw_char			.byte	0
+283		>0d3e	00								cw_color		.byte	0
+284		>0d3f	00								cw_winc			.byte	0
+285		>0d40	00								cw_rinc			.byte	0
+
+287												;;;;;;;;;;;;;;;;;;;;;;;;;
+288												; FillWindow: Fills a window on the current screen starting at current
+289												; screen position.
+290												;
+291												; Req:
+292												;		cw_col, cw_row = row/col of start of fill
+293												;		cw_width, cw_height = widht/height of fill window
+294												;		cw_char, cw_color = color and character to fill
+295												;		cw_winc, num bytes from end on window to start of next row/col.
+296												;
+297												; Uses: A, X, Y
+298		.0d41									FillWindow:
+299		.0d41	ac 3c 0d		ldy $0d3c				ldy cw_height						; height counter
+300		.0d44	ae 3b 0d		ldx $0d3b		-		ldx cw_width						; width counter
+301		.0d47									-
+174		.0d47	ad 3d 0d		lda $0d3d				lda cw_char
+175		.0d4a	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+174		.0d4d	ad 3e 0d		lda $0d3e				lda cw_color
+175		.0d50	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+303		.0d53	ca				dex						dex					; dec col count
+304		.0d54	d0 f1			bne $0d47				bne -
+305		.0d56	88				dey						dey					; dec row count
+306		.0d57	f0 08			beq $0d61				beq +
+307		.0d59	ad 3f 0d		lda $0d3f				lda cw_winc			; skip to next to
+308		.0d5c	20 11 0e		jsr $0e11				jsr Add_A_ToVAddr
+309		.0d5f	80 e3			bra $0d44				bra --
+310		.0d61	60				rts				+		rts
+
+312												;;;;;;;;;;;;;;;;;;;;;;;;;
+313												; FillChar: Fills a single character on the current screen starting at current
+314												; screen position.
+315												;
+316												; Req:
+317												;		cw_col, cw_row = row/col of start of fill
+318												;		cw_char, cw_color = color and character to fill
+319												;
+320												; Uses: A, X, Y
+321		.0d62									FillChar:
+174		.0d62	ad 3d 0d		lda $0d3d				lda cw_char
+175		.0d65	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+174		.0d68	ad 3e 0d		lda $0d3e				lda cw_color
+175		.0d6b	8d 23 9f		sta $9f23				sta Vera.IO_VERA.data0
+324		.0d6e	60				rts						rts
+
+326												;;;;;;;;;;;;;;;;;;;;;;;;;
+327												; Computes screen starting address for window with default INC=1
+328												;
+329												; cw_col, cw_row = starting row,
+330												;
+331												; Uses: A, Y
+332		.0d6f									AddCwRowColToVAddr32:		; map width of 32 (64 bytes row increment)
+333		.0d6f	ad 3a 0d		lda $0d3a				lda cw_row
+334		.0d72	0a				asl a					asl a
+335		.0d73	0a				asl a					asl a
+336		.0d74	0a				asl a					asl a
+337		.0d75	0a				asl a					asl a
+338		.0d76	0a				asl a					asl a
+339		.0d77	0a				asl a					asl a
+340		.0d78	18				clc						clc
+341		.0d79	6d 20 9f		adc $9f20				adc Vera.IO_VERA.addrL
+342		.0d7c	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+343		.0d7f	90 12			bcc $0d93				bcc +
+344		.0d81	ad 21 9f		lda $9f21				lda Vera.IO_VERA.addrM
+345		.0d84	69 00			adc #$00				adc #0
+346		.0d86	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+347		.0d89	90 08			bcc $0d93				bcc +
+348		.0d8b	ad 22 9f		lda $9f22				lda Vera.IO_VERA.addrH
+349		.0d8e	69 00			adc #$00				adc #0
+350		.0d90	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+351		.0d93	ad 3a 0d		lda $0d3a		+		lda cw_row
+352		.0d96	4a				lsr a					lsr a
+353		.0d97	4a				lsr a					lsr a
+354		.0d98	18				clc						clc
+355		.0d99	6d 21 9f		adc $9f21				adc Vera.IO_VERA.addrM
+356		.0d9c	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+357		.0d9f	90 03			bcc $0da4				bcc +
+358		.0da1	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+359		.0da4	4c 0d 0e		jmp $0e0d		+		jmp AddCwColToVAddr
+
+361		.0da7									AddCwRowColToVAddr64:		; map width of 64 (128 bytes row increment)
+362		.0da7	ad 3a 0d		lda $0d3a				lda cw_row
+363		.0daa	4a				lsr a					lsr a
+364		.0dab	90 22			bcc $0dcf				bcc ++
+365		.0dad	a9 80			lda #$80				lda #$80
+366		.0daf	18				clc						clc
+367		.0db0	6d 20 9f		adc $9f20				adc Vera.IO_VERA.addrL
+368		.0db3	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+369		.0db6	90 12			bcc $0dca				bcc +
+370		.0db8	ad 21 9f		lda $9f21				lda Vera.IO_VERA.addrM
+371		.0dbb	69 00			adc #$00				adc #0
+372		.0dbd	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+373		.0dc0	90 08			bcc $0dca				bcc +
+374		.0dc2	ad 22 9f		lda $9f22				lda Vera.IO_VERA.addrH
+375		.0dc5	69 00			adc #$00				adc #0
+376		.0dc7	8d 22 9f		sta $9f22				sta Vera.IO_VERA.addrH
+377		.0dca	ad 3a 0d		lda $0d3a		+		lda cw_row
+378		.0dcd	4a				lsr a					lsr a
+379		.0dce	18				clc						clc
+380		.0dcf	6d 21 9f		adc $9f21		+		adc Vera.IO_VERA.addrM
+381		.0dd2	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+382		.0dd5	90 03			bcc $0dda				bcc +
+383		.0dd7	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+384		.0dda	4c 0d 0e		jmp $0e0d		+		jmp AddCwColToVAddr
+
+386		.0ddd									AddCwRowColToVAddr128:		; map width of 128 (256 byte row increment)
+387		.0ddd	ad 3a 0d		lda $0d3a				lda cw_row
+388		.0de0	18				clc						clc
+389		.0de1	6d 21 9f		adc $9f21				adc Vera.IO_VERA.addrM
+390		.0de4	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+391		.0de7	90 03			bcc $0dec				bcc +
+392		.0de9	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+393		.0dec	4c 0d 0e		jmp $0e0d		+		jmp AddCwColToVAddr
+
+395		.0def									AddCwRowColToVAddr256:		; map width of 256 (512 byte row increment)
+396		.0def	ad 3a 0d		lda $0d3a				lda cw_row
+397		.0df2	18				clc						clc
+398		.0df3	6d 21 9f		adc $9f21				adc Vera.IO_VERA.addrM
+399		.0df6	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+400		.0df9	90 03			bcc $0dfe				bcc +
+401		.0dfb	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+402		.0dfe	ad 3a 0d		lda $0d3a		+		lda cw_row
+403		.0e01	18				clc						clc
+404		.0e02	6d 21 9f		adc $9f21				adc Vera.IO_VERA.addrM
+405		.0e05	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+406		.0e08	90 03			bcc $0e0d				bcc +
+407		.0e0a	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+408		.0e0d									+		; fall through to AddCwColToVAddr
+
+410												;;;;;;;;;;;;;;;;;;;;;;;;
+411												; Adds A to VERA Address
+412												; A contains the value to add
+413		.0e0d									AddCwColToVAddr:
+414		.0e0d	ad 39 0d		lda $0d39				lda cw_col
+415		.0e10	0a				asl a					asl a								; *2 for (char,byte)
+416		.0e11									Add_A_ToVAddr:
+417		.0e11	18				clc						clc
+418		.0e12	6d 20 9f		adc $9f20				adc Vera.IO_VERA.addrL
+419		.0e15	8d 20 9f		sta $9f20				sta Vera.IO_VERA.addrL
+420		.0e18	90 0d			bcc $0e27				bcc +
+421		.0e1a	ad 21 9f		lda $9f21				lda Vera.IO_VERA.addrM
+422		.0e1d	69 00			adc #$00				adc #0			; carry is already set
+423		.0e1f	8d 21 9f		sta $9f21				sta Vera.IO_VERA.addrM
+424		.0e22	90 03			bcc $0e27				bcc +
+425		.0e24	ee 22 9f		inc $9f22				inc Vera.IO_VERA.addrH
+426		.0e27	60				rts				+		rts
+
+428												.send section_CODE
+
+430												.bend
+
+:1		;******  Return to file: layerscroll.asm
+
+
+173												;
+174												; Memory map
+175												;
+176												*	= $00
+177												.dsection section_ZP
+178												.cerror * >= $90, "To many ZP variables"
+
+180												*	= $0400
+181												.dsection section_BSS
+182												.cerror * >= $0800, "To many BSS variables"
+
+184												*	= $0801
+185												.dsection section_CODE
+186												.cerror * >= $9f00, "CODE size is to big"
+187												.dsection section_DATA
+188												.cerror * >= $9f00, "DATA size is to big"
+189												*	= $9f00
+190												.dsection section_IO_AUDIO
+191												*	= $9f20
+192												.dsection section_IO_VERA
+193												*	= $9f60
+194												.dsection section_IO_VIA1
+195												*	= $9f70
+196												.dsection section_IO_VIA2
+197												*	= $9f80
+198												.dsection section_IO_RTC
+
+200												*	= $A000
+201												.dsection section_HIMEM
+202												.cerror * > $bfff, "HIMEM data size to big"
+
+;******  End of listing
