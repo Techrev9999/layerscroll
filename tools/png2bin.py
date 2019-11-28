@@ -71,6 +71,8 @@ p = np.array(im)
 tile_height = 8
 tile_width = 8
 num_colors = 16
+# currently hardcoded for 4bpp.  Some time I'll change that and parameterize all this.
+
 
 num_tiles = int((im.height / tile_height) * (im.width / tile_width))
 print(num_tiles, " tiles.")
