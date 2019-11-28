@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+# Hrm, I should talk to Frank Buss.  I modified this a bit, but the code is mostly his.
+# I don't know how this copyright transfers, or if I would have to do major rewrites.
+#
 # Copyright (c) 2019, Frank Buss
 # All rights reserved.
 
@@ -35,11 +37,11 @@ import argparse
 
 # parse arguments
 parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-    description='Converts a PNG file to Commander X16 sprite data.\n\n'
+    description='Converts a PNG file to Commander X16 tile data.\n\n'
     'Examples:\n\n'
-    'png2sprite.py -n balloon.png balloon.c balloon.inc\n'
+    'png2bin.py -f c font-hud.png font-hud.h\n'
     'Read the PNG image balloon.png and create a file with a C array named "balloon".\n\n'
-    'png2sprite.py -c ffffff mini.png test.bas\n'
+    'png2bin.py -c ffffff mini.png test.bas\n'
     'Read the PNG image mini.png and create a file test.bas with a BASIC file with\n'
     'DATA statements starting at line 10000, using white for transparent color.\n\n'
     'Note: the PNG file must have a fully transparent background, which is then used for index 0.')
@@ -65,9 +67,11 @@ default_palette.reverse()
 im = Image.open(args.input)
 im = im.convert('RGBA')
 p = np.array(im)
-# convert to sprite data
+# convert to tile data
 tile_height = 8
 tile_width = 8
+num_colors = 16
+
 num_tiles = int((im.height / tile_height) * (im.width / tile_width))
 print(num_tiles, " tiles.")
 i = 0
@@ -100,7 +104,7 @@ with open(args.output, "w") as file:
                         # find best palette match, start searching from top to allow index 16 for black color
                         d = 1e9
                         best = 0
-                        j = 15
+                        j = (num_colors - 1)
                         for entry in default_palette:
                             rp = ((entry >> 8) & 0xf) << 4
                             gp = ((entry >> 4) & 0xf) << 4
@@ -113,7 +117,6 @@ with open(args.output, "w") as file:
                                 best = j
                                 d = d0
                             j = j - 1
-                    #imageData[y*im.width+(x>>1)] += (best if x%2 != 0 else (best << 4))    
                     # write palette index
                     if x%2 !=0:
                         bestbyte |= best 
